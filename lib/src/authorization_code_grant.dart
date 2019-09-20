@@ -268,7 +268,7 @@ class AuthorizationCodeGrant {
   /// responses while retrieving credentials.
   ///
   /// Throws [AuthorizationException] if the authorization fails.
-  Future<Client> handleAuthorizationCode(String authorizationCode) async {
+  Future<Client> handleAuthorizationCode(String authorizationCode, {Map<String,String> headers}) async {
     if (_state == _State.initial) {
       throw new StateError('The authorization URL has not yet been generated.');
     } else if (_state == _State.finished) {
@@ -276,7 +276,7 @@ class AuthorizationCodeGrant {
     }
     _state = _State.finished;
 
-    return await _handleAuthorizationCode(authorizationCode);
+    return await _handleAuthorizationCode(authorizationCode, headers: headers);
   }
 
   /// This works just like [handleAuthorizationCode], except it doesn't validate
