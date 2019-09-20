@@ -93,6 +93,9 @@ class AuthorizationCodeGrant {
   /// The scopes that the client is requesting access to.
   List<String> _scopes;
 
+  /// The resources that the client is requesting access to.
+  List<String> _resources;
+
   /// An opaque string that users of this library may specify that will be
   /// included in the response query parameters.
   String _stateString;
@@ -163,7 +166,7 @@ class AuthorizationCodeGrant {
   ///
   /// It is a [StateError] to call this more than once.
   Uri getAuthorizationUrl(Uri redirect,
-      {Iterable<String> scopes, String state}) {
+      {Iterable<String> scopes, String state, Iterable<String> resources}) {
     if (_state != _State.initial) {
       throw new StateError('The authorization URL has already been generated.');
     }
@@ -175,8 +178,15 @@ class AuthorizationCodeGrant {
       scopes = scopes.toList();
     }
 
+    if (resources == null) {
+      resources = [];
+    } else {
+      resources = resources.toList();
+    }
+
     this._redirectEndpoint = redirect;
     this._scopes = scopes;
+    this._resources = resources;
     this._stateString = state;
     var parameters = {
       "response_type": "code",
@@ -186,6 +196,7 @@ class AuthorizationCodeGrant {
 
     if (state != null) parameters['state'] = state;
     if (scopes.isNotEmpty) parameters['scope'] = scopes.join(_delimiter);
+    if (resources.isNotEmpty) parameters['resource'] = resources.join(_delimiter);
 
     return addQueryParameters(this.authorizationEndpoint, parameters);
   }
@@ -270,10 +281,12 @@ class AuthorizationCodeGrant {
 
   /// This works just like [handleAuthorizationCode], except it doesn't validate
   /// the state beforehand.
-  Future<Client> _handleAuthorizationCode(String authorizationCode) async {
+  Future<Client> _handleAuthorizationCode(String authorizationCode, {Map<String,String> headers}) async {
     var startTime = new DateTime.now();
 
-    var headers = <String, String>{};
+    if (headers == null) {
+      headers = <String, String>{};
+    }
 
     var body = {
       "grant_type": "authorization_code",
