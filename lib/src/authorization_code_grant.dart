@@ -96,6 +96,9 @@ class AuthorizationCodeGrant {
   /// The scopes that the client is requesting access to.
   List<String>? _scopes;
 
+  /// The resources that the client is requesting access to.
+  List<String>? _resources;
+
   /// An opaque string that users of this library may specify that will be
   /// included in the response query parameters.
   String? _stateString;
@@ -183,7 +186,7 @@ class AuthorizationCodeGrant {
   ///
   /// It is a [StateError] to call this more than once.
   Uri getAuthorizationUrl(Uri redirect,
-      {Iterable<String>? scopes, String? state}) {
+      {Iterable<String>? scopes, String? state, Iterable<String>? resources}) {
     if (_state != _State.initial) {
       throw StateError('The authorization URL has already been generated.');
     }
@@ -194,8 +197,12 @@ class AuthorizationCodeGrant {
         .encode(sha256.convert(ascii.encode(_codeVerifier)).bytes)
         .replaceAll('=', '');
 
+    var resourceList = resources?.toList() ?? <String>[];
+
+
     _redirectEndpoint = redirect;
     _scopes = scopeList;
+    this._resources = resourceList;
     _stateString = state;
     var parameters = {
       'response_type': 'code',
@@ -207,6 +214,7 @@ class AuthorizationCodeGrant {
 
     if (state != null) parameters['state'] = state;
     if (scopeList.isNotEmpty) parameters['scope'] = scopeList.join(_delimiter);
+    if (resources.isNotEmpty) parameters['resource'] = resources.join(_delimiter);
 
     return addQueryParameters(authorizationEndpoint, parameters);
   }
@@ -279,7 +287,7 @@ class AuthorizationCodeGrant {
   /// responses while retrieving credentials.
   ///
   /// Throws [AuthorizationException] if the authorization fails.
-  Future<Client> handleAuthorizationCode(String authorizationCode) async {
+  Future<Client> handleAuthorizationCode(String authorizationCode, {Map<String,String> headers}) async {
     if (_state == _State.initial) {
       throw StateError('The authorization URL has not yet been generated.');
     } else if (_state == _State.finished) {
@@ -287,15 +295,16 @@ class AuthorizationCodeGrant {
     }
     _state = _State.finished;
 
-    return _handleAuthorizationCode(authorizationCode);
+    return _handleAuthorizationCode(authorizationCode, headers: headers);
   }
 
   /// This works just like [handleAuthorizationCode], except it doesn't validate
   /// the state beforehand.
-  Future<Client> _handleAuthorizationCode(String? authorizationCode) async {
+  Future<Client> _handleAuthorizationCode(String? authorizationCode, {Map<String,String>? headers}) async {
     var startTime = DateTime.now();
 
-    var headers = <String, String>{};
+    var headers = headers?.toList() ?? <String, String>{};
+
 
     var body = {
       'grant_type': 'authorization_code',
