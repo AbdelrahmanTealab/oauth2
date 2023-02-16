@@ -214,7 +214,7 @@ class AuthorizationCodeGrant {
 
     if (state != null) parameters['state'] = state;
     if (scopeList.isNotEmpty) parameters['scope'] = scopeList.join(_delimiter);
-    if (resources.isNotEmpty) parameters['resource'] = resources.join(_delimiter);
+    if (resources != null && resources.isNotEmpty) parameters['resource'] = resources.join(_delimiter);
 
     return addQueryParameters(authorizationEndpoint, parameters);
   }
@@ -287,7 +287,7 @@ class AuthorizationCodeGrant {
   /// responses while retrieving credentials.
   ///
   /// Throws [AuthorizationException] if the authorization fails.
-  Future<Client> handleAuthorizationCode(String authorizationCode, {Map<String,String> headers}) async {
+  Future<Client> handleAuthorizationCode(String authorizationCode, {dynamic headers}) async {
     if (_state == _State.initial) {
       throw StateError('The authorization URL has not yet been generated.');
     } else if (_state == _State.finished) {
@@ -300,10 +300,14 @@ class AuthorizationCodeGrant {
 
   /// This works just like [handleAuthorizationCode], except it doesn't validate
   /// the state beforehand.
-  Future<Client> _handleAuthorizationCode(String? authorizationCode, {Map<String,String>? headers}) async {
+  Future<Client> _handleAuthorizationCode(String? authorizationCode, {dynamic headers}) async {
     var startTime = DateTime.now();
 
-    var headers = headers?.toList() ?? <String, String>{};
+    var headersList = <String, String>{};
+
+    if (headers is Iterable) {
+      headersList = headers as Map<String, String>;
+    }
 
 
     var body = {
@@ -315,7 +319,7 @@ class AuthorizationCodeGrant {
 
     var secret = this.secret;
     if (_basicAuth && secret != null) {
-      headers['Authorization'] = basicAuthHeader(identifier, secret);
+      headersList['Authorization'] = basicAuthHeader(identifier, secret);
     } else {
       // The ID is required for this request any time basic auth isn't being
       // used, even if there's no actual client authentication to be done.
@@ -324,7 +328,7 @@ class AuthorizationCodeGrant {
     }
 
     var response =
-        await _httpClient!.post(tokenEndpoint, headers: headers, body: body);
+        await _httpClient!.post(tokenEndpoint, headers: headersList, body: body);
 
     var credentials = handleAccessTokenResponse(
         response, tokenEndpoint, startTime, _scopes, _delimiter,
