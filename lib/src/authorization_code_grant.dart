@@ -3,10 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 
-import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
@@ -192,29 +190,24 @@ class AuthorizationCodeGrant {
     }
     _state = _State.awaitingResponse;
 
-    var scopeList = scopes?.toList() ?? <String>[];
-    var codeChallenge = base64Url
-        .encode(sha256.convert(ascii.encode(_codeVerifier)).bytes)
-        .replaceAll('=', '');
-
-    var resourceList = resources?.toList() ?? <String>[];
-
+    scopes = scopes?.toList() ?? <String>[];
+    resources = resources?.toList() ?? <String>[];
 
     _redirectEndpoint = redirect;
-    _scopes = scopeList;
-    this._resources = resourceList;
+    _scopes = scopes.toList();
+    _resources = resources.toList();
     _stateString = state;
     var parameters = {
       'response_type': 'code',
       'client_id': identifier,
-      'redirect_uri': redirect.toString(),
-      'code_challenge': codeChallenge,
-      'code_challenge_method': 'S256'
+      'redirect_uri': redirect.toString()
     };
 
     if (state != null) parameters['state'] = state;
-    if (scopeList.isNotEmpty) parameters['scope'] = scopeList.join(_delimiter);
-    if (resources != null && resources.isNotEmpty) parameters['resource'] = resources.join(_delimiter);
+    if (scopes.isNotEmpty) parameters['scope'] = scopes.join(_delimiter);
+    if (resources.isNotEmpty) {
+      parameters['resource'] = resources.join(_delimiter);
+    }
 
     return addQueryParameters(authorizationEndpoint, parameters);
   }
@@ -287,7 +280,8 @@ class AuthorizationCodeGrant {
   /// responses while retrieving credentials.
   ///
   /// Throws [AuthorizationException] if the authorization fails.
-  Future<Client> handleAuthorizationCode(String authorizationCode, {dynamic headers}) async {
+  Future<Client> handleAuthorizationCode(String authorizationCode,
+      {dynamic headers}) async {
     if (_state == _State.initial) {
       throw StateError('The authorization URL has not yet been generated.');
     } else if (_state == _State.finished) {
@@ -300,7 +294,8 @@ class AuthorizationCodeGrant {
 
   /// This works just like [handleAuthorizationCode], except it doesn't validate
   /// the state beforehand.
-  Future<Client> _handleAuthorizationCode(String? authorizationCode, {dynamic headers}) async {
+  Future<Client> _handleAuthorizationCode(String? authorizationCode,
+      {dynamic headers}) async {
     var startTime = DateTime.now();
 
     var headersList = <String, String>{};
@@ -308,7 +303,6 @@ class AuthorizationCodeGrant {
     if (headers is Iterable) {
       headersList = headers as Map<String, String>;
     }
-
 
     var body = {
       'grant_type': 'authorization_code',
@@ -327,8 +321,8 @@ class AuthorizationCodeGrant {
       if (secret != null) body['client_secret'] = secret;
     }
 
-    var response =
-        await _httpClient!.post(tokenEndpoint, headers: headersList, body: body);
+    var response = await _httpClient!
+        .post(tokenEndpoint, headers: headersList, body: body);
 
     var credentials = handleAccessTokenResponse(
         response, tokenEndpoint, startTime, _scopes, _delimiter,
